@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "musicalweapons",
+  "version": "${version}",
+  "name": "Musical Weapons",
+  "description": "Добавляет Деревянную, Железную и Золотую арфы с уникальными навыками.",
+  "authors": ["Naikl48"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.example.musicalweapons.MusicalWeaponsMod"
+    ],
+    "client": [
+      "com.example.musicalweapons.MusicalWeaponsClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.14.0",
+    "fabric": "*",
+    "minecraft": "1.16.5",
+    "java": ">=8"
+  }
+}
