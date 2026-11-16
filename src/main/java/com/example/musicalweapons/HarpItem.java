@@ -7,7 +7,6 @@ import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -57,20 +56,6 @@ public class HarpItem extends Item {
         stack.getOrCreateTag().putInt("HarpMode", mode);
     }
 
-    // Проверяем, сколько тиков осталось до конца КД конкретного навыка (0, 1 или 2)
-    private long getRemainingCooldown(World world, ItemStack stack, int mode) {
-        CompoundTag tag = stack.getOrCreateTag();
-        long readyTime = tag.getLong("CooldownMode_" + mode);
-        long currentTime = world.getTime();
-        return Math.max(0, readyTime - currentTime);
-    }
-
-    // Ставим индивидуальный КД для конкретного навыка
-    private void setSkillCooldown(World world, ItemStack stack, int mode, int ticks) {
-        stack.getOrCreateTag().putLong("CooldownMode_" + mode, world.getTime() + ticks);
-    }
-
-    // Переключение режимов (работает ВСЕГДА, даже во время перезарядки)
     @Override
     public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
         ItemStack stack = user.getStackInHand(hand);
@@ -79,18 +64,13 @@ public class HarpItem extends Item {
         setMode(stack, nextMode);
 
         if (!world.isClient) {
-            long remTicks = getRemainingCooldown(world, stack, nextMode);
-            String status = remTicks > 0
-                    ? String.format(" (КД: %.1f сек)", remTicks / 20.0)
-                    : " (Готово!)";
-
             Text modeText;
             if (nextMode == 0) {
-                modeText = new LiteralText("♪ Навык: Атака" + status).formatted(Formatting.RED);
+                modeText = new LiteralText("♪ Навык: Атака (Красная нота)").formatted(Formatting.RED);
             } else if (nextMode == 1) {
-                modeText = new LiteralText("♪ Навык: Щит и отталкивание" + status).formatted(Formatting.GOLD);
+                modeText = new LiteralText("♪ Навык: Щит и отталкивание").formatted(Formatting.GOLD);
             } else {
-                modeText = new LiteralText("♪ Навык: Скрытность и разведка" + status).formatted(Formatting.AQUA);
+                modeText = new LiteralText("♪ Навык: Скрытность и разведка").formatted(Formatting.AQUA);
             }
             user.sendMessage(modeText, true);
 
@@ -101,23 +81,12 @@ public class HarpItem extends Item {
         return TypedActionResult.success(stack, world.isClient());
     }
 
-    // Активация навыка по ЛКМ со своей перезарядкой для каждого режима
     public void activateSkill(World world, PlayerEntity player, ItemStack stack) {
-        if (world.isClient) {
+        if (world.isClient || player.getItemCooldownManager().isCoolingDown(this)) {
             return;
         }
 
         int mode = getMode(stack);
-        long remTicks = getRemainingCooldown(world, stack, mode);
-
-        // Если этот конкретный навык еще перезаряжается — сообщаем игроку и выходим
-        if (remTicks > 0) {
-            player.sendMessage(
-                    new LiteralText(String.format("⏳ Навык перезаряжается: %.1f сек", remTicks / 20.0)).formatted(Formatting.GRAY),
-                    true
-            );
-            return;
-        }
 
         if (mode == 0) {
             // 1. АТАКА (Красная нота)
@@ -126,7 +95,7 @@ public class HarpItem extends Item {
             world.spawnEntity(note);
 
             world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_HARP, SoundCategory.PLAYERS, 1.0f, 1.5f);
-            setSkillCooldown(world, stack, 0, attackCooldown);
+            player.getItemCooldownManager().set(this, attackCooldown);
 
         } else if (mode == 1) {
             // 2. ЩИТ + ОТТАЛКИВАНИЕ (КД 10 сек = 200 тиков)
@@ -147,7 +116,7 @@ public class HarpItem extends Item {
             if (world instanceof ServerWorld) {
                 ((ServerWorld) world).spawnParticles(ParticleTypes.NOTE, player.getX(), player.getY() + 1.0, player.getZ(), 20, 1.5, 0.5, 1.5, 1.0);
             }
-            setSkillCooldown(world, stack, 1, 200);
+            player.getItemCooldownManager().set(this, 200);
 
         } else if (mode == 2) {
             // 3. СКРЫТНОСТЬ + ПОДСВЕТКА + СКОРОСТЬ (КД 15 сек = 300 тиков)
@@ -163,7 +132,7 @@ public class HarpItem extends Item {
             }
 
             world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_CHIME, SoundCategory.PLAYERS, 1.0f, 1.0f);
-            setSkillCooldown(world, stack, 2, 300);
+            player.getItemCooldownManager().set(this, 300);
         }
 
         stack.damage(1, player, (p) -> p.sendToolBreakStatus(Hand.MAIN_HAND));
