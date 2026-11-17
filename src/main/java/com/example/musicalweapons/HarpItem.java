@@ -49,7 +49,7 @@ public class HarpItem extends Item {
     }
 
     public int getMode(ItemStack stack) {
-        return stack.getOrCreateTag().getInt("HarpMode");
+        return stack.hasTag() ? stack.getTag().getInt("HarpMode") : 0;
     }
 
     public void setMode(ItemStack stack, int mode) {
@@ -57,7 +57,10 @@ public class HarpItem extends Item {
     }
 
     private long getRemainingCooldown(World world, ItemStack stack, int mode) {
-        long readyTime = stack.getOrCreateTag().getLong("CooldownMode_" + mode);
+        if (!stack.hasTag()) {
+            return 0;
+        }
+        long readyTime = stack.getTag().getLong("CooldownMode_" + mode);
         long currentTime = world.getTime();
         return Math.max(0, readyTime - currentTime);
     }
@@ -113,7 +116,6 @@ public class HarpItem extends Item {
         }
 
         if (mode == 0) {
-            // 1. АТАКА (Красная нота)
             RedNoteEntity note = new RedNoteEntity(world, player, noteDamage, noteRange);
             note.setProperties(player, player.pitch, player.yaw, 0.0f, 1.8f, 0.0f);
             world.spawnEntity(note);
@@ -122,7 +124,6 @@ public class HarpItem extends Item {
             setSkillCooldown(world, stack, 0, attackCooldown);
 
         } else if (mode == 1) {
-            // 2. ЩИТ + ОТТАЛКИВАНИЕ (КД 10 сек = 200 тиков)
             Box area = player.getBoundingBox().expand(knockbackStrength);
             List<Entity> entities = world.getOtherEntities(player, area);
 
@@ -138,12 +139,11 @@ public class HarpItem extends Item {
             world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.HARP_SHIELD_SOUND, SoundCategory.PLAYERS, 1.0f, 1.0f);
 
             if (world instanceof ServerWorld) {
-                ((ServerWorld) world).spawnParticles(ParticleTypes.NOTE, player.getX(), player.getY() + 1.0, player.getZ(), 20, 1.5, 0.5, 1.5, 1.0);
+                ((ServerWorld) world).spawnParticles(ParticleTypes.NOTE, player.getX(), player.getY() + 1.0, player.getZ(), 12, 1.5, 0.5, 1.5, 1.0);
             }
             setSkillCooldown(world, stack, 1, 200);
 
         } else if (mode == 2) {
-            // 3. СКРЫТНОСТЬ + ПОДСВЕТКА + СКОРОСТЬ (КД 15 сек = 300 тиков)
             player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, invisDuration, 0));
             player.addStatusEffect(new StatusEffectInstance(StatusEffects.SPEED, invisDuration, speedAmplifier));
 
