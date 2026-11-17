@@ -56,6 +56,16 @@ public class HarpItem extends Item {
         stack.getOrCreateTag().putInt("HarpMode", mode);
     }
 
+    private long getRemainingCooldown(World world, ItemStack stack, int mode) {
+        long readyTime = stack.getOrCreateTag().getLong("CooldownMode_" + mode);
+        long currentTime = world.getTime();
+        return Math.max(0, readyTime - currentTime);
+    }
+
+    private void setSkillCooldown(World world, ItemStack stack, int mode, int ticks) {
+        stack.getOrCreateTag().putLong("CooldownMode_" + mode, world.getTime() + ticks);
+    }
+
     @Override
     public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
         ItemStack stack = user.getStackInHand(hand);
@@ -64,13 +74,18 @@ public class HarpItem extends Item {
         setMode(stack, nextMode);
 
         if (!world.isClient) {
+            long remTicks = getRemainingCooldown(world, stack, nextMode);
+            String status = remTicks > 0
+                    ? String.format(" (КД: %.1f сек)", remTicks / 20.0)
+                    : " (Готово!)";
+
             Text modeText;
             if (nextMode == 0) {
-                modeText = new LiteralText("♪ Навык: Атака (Красная нота)").formatted(Formatting.RED);
+                modeText = new LiteralText("♪ Навык: Атака" + status).formatted(Formatting.RED);
             } else if (nextMode == 1) {
-                modeText = new LiteralText("♪ Навык: Щит и отталкивание").formatted(Formatting.GOLD);
+                modeText = new LiteralText("♪ Навык: Щит и отталкивание" + status).formatted(Formatting.GOLD);
             } else {
-                modeText = new LiteralText("♪ Навык: Скрытность и разведка").formatted(Formatting.AQUA);
+                modeText = new LiteralText("♪ Навык: Скрытность и разведка" + status).formatted(Formatting.AQUA);
             }
             user.sendMessage(modeText, true);
 
@@ -82,11 +97,20 @@ public class HarpItem extends Item {
     }
 
     public void activateSkill(World world, PlayerEntity player, ItemStack stack) {
-        if (world.isClient || player.getItemCooldownManager().isCoolingDown(this)) {
+        if (world.isClient) {
             return;
         }
 
         int mode = getMode(stack);
+        long remTicks = getRemainingCooldown(world, stack, mode);
+
+        if (remTicks > 0) {
+            player.sendMessage(
+                    new LiteralText(String.format("⏳ Навык перезаряжается: %.1f сек", remTicks / 20.0)).formatted(Formatting.GRAY),
+                    true
+            );
+            return;
+        }
 
         if (mode == 0) {
             // 1. АТАКА (Красная нота)
@@ -94,8 +118,8 @@ public class HarpItem extends Item {
             note.setProperties(player, player.pitch, player.yaw, 0.0f, 1.8f, 0.0f);
             world.spawnEntity(note);
 
-            world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_HARP, SoundCategory.PLAYERS, 1.0f, 1.5f);
-            player.getItemCooldownManager().set(this, attackCooldown);
+            world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.HARP_ATTACK_SOUND, SoundCategory.PLAYERS, 1.0f, 1.0f);
+            setSkillCooldown(world, stack, 0, attackCooldown);
 
         } else if (mode == 1) {
             // 2. ЩИТ + ОТТАЛКИВАНИЕ (КД 10 сек = 200 тиков)
@@ -111,12 +135,12 @@ public class HarpItem extends Item {
             }
 
             player.addStatusEffect(new StatusEffectInstance(StatusEffects.ABSORPTION, 200, absorptionAmplifier));
-            world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_BASS, SoundCategory.PLAYERS, 1.2f, 0.6f);
+            world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.HARP_SHIELD_SOUND, SoundCategory.PLAYERS, 1.0f, 1.0f);
 
             if (world instanceof ServerWorld) {
                 ((ServerWorld) world).spawnParticles(ParticleTypes.NOTE, player.getX(), player.getY() + 1.0, player.getZ(), 20, 1.5, 0.5, 1.5, 1.0);
             }
-            player.getItemCooldownManager().set(this, 200);
+            setSkillCooldown(world, stack, 1, 200);
 
         } else if (mode == 2) {
             // 3. СКРЫТНОСТЬ + ПОДСВЕТКА + СКОРОСТЬ (КД 15 сек = 300 тиков)
@@ -131,8 +155,8 @@ public class HarpItem extends Item {
                 }
             }
 
-            world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_CHIME, SoundCategory.PLAYERS, 1.0f, 1.0f);
-            player.getItemCooldownManager().set(this, 300);
+            world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.HARP_STEALTH_SOUND, SoundCategory.PLAYERS, 1.0f, 1.0f);
+            setSkillCooldown(world, stack, 2, 300);
         }
 
         stack.damage(1, player, (p) -> p.sendToolBreakStatus(Hand.MAIN_HAND));
