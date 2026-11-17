@@ -1,7 +1,7 @@
 package com.example.musicalweapons;
 
-import net.fabricmc.api.EnvType;
-import net.fabricmc.api.Environment;
+import io.netty.buffer.Unpooled;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.FlyingItemEntity;
@@ -11,14 +11,13 @@ import net.minecraft.entity.projectile.thrown.ThrownItemEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.Packet;
-import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
-@Environment(EnvType.CLIENT)
 public class RedNoteEntity extends ThrownItemEntity implements FlyingItemEntity {
     private float damage = 6.0f;
     private double maxRange = 10.0;
@@ -49,7 +48,15 @@ public class RedNoteEntity extends ThrownItemEntity implements FlyingItemEntity 
 
     @Override
     public Packet<?> createSpawnPacket() {
-        return new EntitySpawnS2CPacket(this);
+        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+        buf.writeVarInt(this.getEntityId());
+        buf.writeUuid(this.getUuid());
+        buf.writeDouble(this.getX());
+        buf.writeDouble(this.getY());
+        buf.writeDouble(this.getZ());
+        buf.writeByte((byte) ((int) (this.pitch * 256.0F / 360.0F)));
+        buf.writeByte((byte) ((int) (this.yaw * 256.0F / 360.0F)));
+        return ServerPlayNetworking.createS2CPacket(MusicalWeaponsMod.SPAWN_NOTE_PACKET, buf);
     }
 
     @Override
@@ -59,7 +66,7 @@ public class RedNoteEntity extends ThrownItemEntity implements FlyingItemEntity 
         this.setVelocity(velocity);
 
         if (this.world.isClient) {
-            this.world.addParticle(ParticleTypes.NOTE, this.getX(), this.getY(), this.getZ(), 0.0, 0.0, 0.0);
+            this.world.addParticle(ParticleTypes.NOTE, this.getX(), this.getY() + 0.1, this.getZ(), 0.0, 0.0, 0.0);
         } else {
             if (this.startPos != null && this.getPos().distanceTo(this.startPos) >= this.maxRange) {
                 this.remove();
