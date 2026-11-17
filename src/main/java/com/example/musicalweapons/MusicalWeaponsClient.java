@@ -11,16 +11,39 @@ import net.minecraft.client.render.entity.FlyingItemEntityRenderer;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.ActionResult;
 
+import java.util.UUID;
+
 public class MusicalWeaponsClient implements ClientModInitializer {
     private boolean wasAttackPressed = false;
 
     @Override
     public void onInitializeClient() {
-        // Отрисовка летящего снаряда-ноты с текстурой red_note.png
         EntityRendererRegistry.INSTANCE.register(MusicalWeaponsMod.RED_NOTE_ENTITY,
                 (dispatcher, context) -> new FlyingItemEntityRenderer<>(dispatcher, context.getItemRenderer()));
 
-        // Отменяем копание блоков при клике ЛКМ с арфой
+        ClientPlayNetworking.registerGlobalReceiver(MusicalWeaponsMod.SPAWN_NOTE_PACKET, (client, handler, buf, responseSender) -> {
+            int entityId = buf.readVarInt();
+            UUID uuid = buf.readUuid();
+            double x = buf.readDouble();
+            double y = buf.readDouble();
+            double z = buf.readDouble();
+            float pitch = (buf.readByte() * 360.0F) / 256.0F;
+            float yaw = (buf.readByte() * 360.0F) / 256.0F;
+
+            client.execute(() -> {
+                if (client.world != null) {
+                    RedNoteEntity entity = new RedNoteEntity(MusicalWeaponsMod.RED_NOTE_ENTITY, client.world);
+                    entity.updatePosition(x, y, z);
+                    entity.updateTrackedPosition(x, y, z);
+                    entity.pitch = pitch;
+                    entity.yaw = yaw;
+                    entity.setEntityId(entityId);
+                    entity.setUuid(uuid);
+                    client.world.addEntity(entityId, entity);
+                }
+            });
+        });
+
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
             if (player.getStackInHand(hand).getItem() instanceof HarpItem) {
                 return ActionResult.FAIL;
@@ -28,7 +51,6 @@ public class MusicalWeaponsClient implements ClientModInitializer {
             return ActionResult.PASS;
         });
 
-        // Отменяем обычный удар рукой по мобам при клике ЛКМ с арфой
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (player.getStackInHand(hand).getItem() instanceof HarpItem) {
                 return ActionResult.FAIL;
@@ -36,7 +58,6 @@ public class MusicalWeaponsClient implements ClientModInitializer {
             return ActionResult.PASS;
         });
 
-        // Отслеживаем нажатие ЛКМ в любой момент (даже в пустой воздух)
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player != null && client.currentScreen == null) {
                 boolean isPressed = client.options.keyAttack.isPressed();
