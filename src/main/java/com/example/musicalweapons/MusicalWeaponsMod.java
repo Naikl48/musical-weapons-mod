@@ -10,12 +10,24 @@ import net.minecraft.entity.SpawnGroup;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.registry.Registry;
 
 public class MusicalWeaponsMod implements ModInitializer {
     public static final String MOD_ID = "musicalweapons";
     public static final Identifier USE_HARP_PACKET = new Identifier(MOD_ID, "use_harp");
+    public static final Identifier SPAWN_NOTE_PACKET = new Identifier(MOD_ID, "spawn_note");
+
+    // Регистрация 3 твоих звуков для навыков
+    public static final SoundEvent HARP_ATTACK_SOUND = registerSound("harp_attack");
+    public static final SoundEvent HARP_SHIELD_SOUND = registerSound("harp_shield");
+    public static final SoundEvent HARP_STEALTH_SOUND = registerSound("harp_stealth");
+
+    private static SoundEvent registerSound(String name) {
+        Identifier id = new Identifier(MOD_ID, name);
+        return Registry.register(Registry.SOUND_EVENT, id, new SoundEvent(id));
+    }
 
     public static final Item RED_NOTE_ITEM = Registry.register(
             Registry.ITEM, new Identifier(MOD_ID, "red_note"), new Item(new Item.Settings())
