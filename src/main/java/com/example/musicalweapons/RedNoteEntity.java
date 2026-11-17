@@ -66,12 +66,15 @@ public class RedNoteEntity extends ThrownItemEntity implements FlyingItemEntity 
         this.setVelocity(velocity);
 
         if (this.world.isClient) {
-            this.world.addParticle(ParticleTypes.NOTE, this.getX(), this.getY() + 0.1, this.getZ(), 0.0, 0.0, 0.0);
+            // Спавним частицу раз в 3 тика для сохранения плавного FPS
+            if (this.age % 3 == 0) {
+                this.world.addParticle(ParticleTypes.NOTE, this.getX(), this.getY() + 0.1, this.getZ(), 0.0, 0.0, 0.0);
+            }
         } else {
             if (this.startPos != null && this.getPos().distanceTo(this.startPos) >= this.maxRange) {
                 this.remove();
             }
-            if (this.age > 100) {
+            if (this.age > 80) {
                 this.remove();
             }
         }
