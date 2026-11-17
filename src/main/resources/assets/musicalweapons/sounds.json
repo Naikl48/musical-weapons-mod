@@ -1,0 +1,20 @@
+{
+  "harp_attack": {
+    "subtitle": "subtitles.musicalweapons.harp_attack",
+    "sounds": [
+      "musicalweapons:harp_attack"
+    ]
+  },
+  "harp_shield": {
+    "subtitle": "subtitles.musicalweapons.harp_shield",
+    "sounds": [
+      "musicalweapons:harp_shield"
+    ]
+  },
+  "harp_stealth": {
+    "subtitle": "subtitles.musicalweapons.harp_stealth",
+    "sounds": [
+      "musicalweapons:harp_stealth"
+    ]
+  }
+}
