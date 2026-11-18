@@ -90,7 +90,7 @@ public class ViolinItem extends Item {
                 stack.getOrCreateTag().putInt("ViolinAirTicks", 0);
             }
 
-            world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_CHIME, SoundCategory.PLAYERS, 1.3f, isFullCharge ? 1.5f : 1.0f);
+            world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.VIOLIN_DASH_SHOT_SOUND, SoundCategory.PLAYERS, 1.3f, 1.0f);
             if (world instanceof ServerWorld) {
                 ((ServerWorld) world).spawnParticles(ParticleTypes.NOTE, player.getX(), player.getY() + 1.0, player.getZ(), 12, 0.4, 0.4, 0.4, 0.1);
             }
@@ -110,7 +110,7 @@ public class ViolinItem extends Item {
             bowEntity.setProperties(player, player.pitch, player.yaw, 0.0F, 1.5F, 0.0F);
             world.spawnEntity(bowEntity);
 
-            world.playSound(null, player.getBlockPos(), SoundEvents.ENTITY_ARROW_SHOOT, SoundCategory.PLAYERS, 1.2f, 1.4f);
+            world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.VIOLIN_THROW_SHOT_SOUND, SoundCategory.PLAYERS, 1.3f, 1.0f);
             player.getItemCooldownManager().set(this, 20);
             stack.damage(1, player, (p) -> p.sendToolBreakStatus(Hand.MAIN_HAND));
         }
