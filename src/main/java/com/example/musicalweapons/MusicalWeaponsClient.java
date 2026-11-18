@@ -8,10 +8,12 @@ import net.fabricmc.fabric.api.client.rendereregistry.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.minecraft.client.render.entity.FlyingItemEntityRenderer;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.text.LiteralText;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
@@ -25,6 +27,7 @@ public class MusicalWeaponsClient implements ClientModInitializer {
 
     public static int violinChargeTicks = 0;
     public static boolean isViolinCharging = false;
+    private static SoundInstance activeViolinChargeSound = null;
 
     @Override
     public void onInitializeClient() {
@@ -137,17 +140,20 @@ public class MusicalWeaponsClient implements ClientModInitializer {
 
                 if (mainHandItem instanceof ViolinItem && !client.player.getItemCooldownManager().isCoolingDown(mainHandItem) && !ViolinItem.isBowThrown(mainStack)) {
                     if (isPressed) {
+                        int mode = ViolinItem.getMode(mainStack);
+
+                        if (!isViolinCharging) {
+                            SoundEvent chargeSound = (mode == 1)
+                                    ? MusicalWeaponsMod.VIOLIN_THROW_CHARGE_SOUND
+                                    : MusicalWeaponsMod.VIOLIN_DASH_CHARGE_SOUND;
+                            activeViolinChargeSound = PositionedSoundInstance.master(chargeSound, 1.0F);
+                            client.getSoundManager().play(activeViolinChargeSound);
+                        }
+
                         isViolinCharging = true;
                         violinChargeTicks++;
 
-                        int mode = ViolinItem.getMode(mainStack);
                         int reqTicks = (mode == 1) ? 200 : 100;
-
-                        int step = (mode == 1) ? 50 : 25;
-                        if (violinChargeTicks > 0 && violinChargeTicks <= reqTicks && violinChargeTicks % step == 0) {
-                            float pitch = 0.8F + (violinChargeTicks / (float) reqTicks) * 0.8F;
-                            client.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP, 1.0F, pitch);
-                        }
 
                         if (mode == 0) {
                             int clamped = Math.min(violinChargeTicks, 100);
@@ -166,6 +172,11 @@ public class MusicalWeaponsClient implements ClientModInitializer {
                             }
                         }
                     } else if (isViolinCharging) {
+                        if (activeViolinChargeSound != null) {
+                            client.getSoundManager().stop(activeViolinChargeSound);
+                            activeViolinChargeSound = null;
+                        }
+
                         PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
                         buf.writeInt(violinChargeTicks);
                         ClientPlayNetworking.send(MusicalWeaponsMod.USE_VIOLIN_PACKET, buf);
@@ -174,17 +185,25 @@ public class MusicalWeaponsClient implements ClientModInitializer {
                         violinChargeTicks = 0;
                     }
                 } else {
+                    if (activeViolinChargeSound != null) {
+                        client.getSoundManager().stop(activeViolinChargeSound);
+                        activeViolinChargeSound = null;
+                    }
                     isViolinCharging = false;
                     violinChargeTicks = 0;
                 }
 
                 wasAttackPressed = isPressed;
             } else {
-                isTrumpetAiming = false;
-                trumpetChargeTicks = 0;
-                isViolinCharging = false;
-                violinChargeTicks = 0;
-            }
-        });
-    }
+                if (activeViolinChargeSound != null) {
+client.getSoundManager().stop(activeViolinChargeSound);
+activeViolinChargeSound = null;
+}
+isTrumpetAiming = false;
+trumpetChargeTicks = 0;
+isViolinCharging = false;
+violinChargeTicks = 0;
+}
+});
+}
 }
