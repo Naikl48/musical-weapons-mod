@@ -153,12 +153,12 @@ public class MusicalWeaponsClient implements ClientModInitializer {
                         isViolinCharging = true;
                         violinChargeTicks++;
 
-                        int reqTicks = (mode == 1) ? 200 : 100;
+                        int reqTicks = (mode == 1) ? 100 : 60;
 
                         if (mode == 0) {
-                            int clamped = Math.min(violinChargeTicks, 100);
-                            double dist = 2.0 + 5.0 * (clamped / 100.0);
-                            if (clamped >= 100) {
+                            int clamped = Math.min(violinChargeTicks, 60);
+                            double dist = 2.0 + 5.0 * (clamped / 60.0);
+                            if (clamped >= 60) {
                                 client.player.sendMessage(new LiteralText("★ РЫВОК: 7.0 БЛ. + ПЛАВНОЕ ПАДЕНИЕ ★").formatted(Formatting.AQUA), true);
                             } else {
                                 client.player.sendMessage(new LiteralText(String.format("Заряд рывка: %.1f / 7.0 бл.", dist)).formatted(Formatting.YELLOW), true);
