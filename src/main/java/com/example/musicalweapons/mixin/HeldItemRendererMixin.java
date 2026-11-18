@@ -38,26 +38,32 @@ public abstract class HeldItemRendererMixin {
                                || (hand == Hand.OFF_HAND && player.getMainArm() == Arm.LEFT);
             int side = isRightHand ? 1 : -1;
 
-            float offsetX = -0.15f * side;
-            float offsetY = 0.05f;
-            float offsetZ = -0.05f;
+            // Смычок лежит поверх струн (слегка сбоку от корпуса скрипки, чтобы не застревать в текстуре)
+            float offsetX = -0.055f * side;
+            float offsetY = 0.02f;
+            float offsetZ = -0.04f;
+            float stroke = 0.0f;
 
             if (player == this.client.player && MusicalWeaponsClient.isViolinCharging) {
                 int mode = ViolinItem.getMode(item);
-                float maxTicks = (mode == 1) ? 200.0f : 100.0f;
+                float maxTicks = (mode == 1) ? 100.0f : 60.0f;
                 float smoothTicks = MusicalWeaponsClient.violinChargeTicks + tickDelta;
                 float progress = Math.min(smoothTicks / maxTicks, 1.0f);
 
-                float speed = 0.25f + (progress * 1.15f);
-                float slide = (float) Math.sin(smoothTicks * speed) * 0.22f;
+                // Частота движений смычка плавно ускоряется по мере зарядки
+                float speed = 0.30f + (progress * 1.25f);
+                stroke = (float) Math.sin(smoothTicks * speed);
 
-                offsetX += slide * side;
-                offsetY += slide * 0.12f;
+                // Скольжение смычка вдоль собственной оси поперёк струн скрипки
+                offsetY += stroke * 0.16f;
+                offsetZ += stroke * 0.16f;
             }
 
             matrices.translate(offsetX, offsetY, offsetZ);
-            matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion(75.0f * side));
-            matrices.scale(0.85f, 0.85f, 0.85f);
+            // Разворачиваем смычок поперёк деки скрипки + лёгкое покачивание кистью при игре
+            matrices.multiply(Vec3f.POSITIVE_X.getDegreesQuaternion(85.0f + stroke * 8.0f));
+            matrices.multiply(Vec3f.POSITIVE_Y.getDegreesQuaternion(12.0f * side));
+            matrices.scale(0.9f, 0.9f, 0.9f);
 
             ItemStack bowStack = new ItemStack(MusicalWeaponsMod.VIOLIN_BOW_ITEM);
             ModelTransformation.Mode transformMode = isRightHand ? ModelTransformation.Mode.FIRST_PERSON_RIGHT_HAND : ModelTransformation.Mode.FIRST_PERSON_LEFT_HAND;
