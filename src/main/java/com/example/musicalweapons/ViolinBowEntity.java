@@ -27,16 +27,18 @@ import net.minecraft.world.World;
 public class ViolinBowEntity extends ThrownItemEntity {
     private Vec3d startPos;
     private ItemStack violinStack = ItemStack.EMPTY;
+    private double maxDistance = 40.0;
 
     public ViolinBowEntity(EntityType<? extends ThrownItemEntity> entityType, World world) {
         super(entityType, world);
         this.setNoGravity(true);
     }
 
-    public ViolinBowEntity(World world, LivingEntity owner, ItemStack violinStack) {
+    public ViolinBowEntity(World world, LivingEntity owner, ItemStack violinStack, double maxDistance) {
         super(MusicalWeaponsMod.VIOLIN_BOW_ENTITY, owner, world);
         this.startPos = owner.getCameraPosVec(1.0F);
         this.violinStack = violinStack;
+        this.maxDistance = maxDistance;
         this.setNoGravity(true);
     }
 
@@ -54,7 +56,7 @@ public class ViolinBowEntity extends ThrownItemEntity {
                 ((ServerWorld) this.world).spawnParticles(ParticleTypes.NOTE, this.getX(), this.getY(), this.getZ(), 1, 0, 0, 0, 0);
             }
 
-            if (this.startPos != null && this.getPos().distanceTo(this.startPos) >= 15.0) {
+            if (this.startPos != null && this.getPos().distanceTo(this.startPos) >= this.maxDistance) {
                 returnBowToOwner(true);
                 this.remove();
             }
@@ -101,7 +103,7 @@ public class ViolinBowEntity extends ThrownItemEntity {
             }
 
             if (dissipated) {
-                player.sendMessage(new LiteralText("♪ Смычок рассеялся на 15 блоках и вернулся к скрипке").formatted(Formatting.YELLOW), true);
+                player.sendMessage(new LiteralText(String.format("♪ Смычок рассеялся на %.0f бл. и вернулся к скрипке", this.maxDistance)).formatted(Formatting.YELLOW), true);
                 this.world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_BELL, SoundCategory.PLAYERS, 1.0f, 1.8f);
             }
         }
