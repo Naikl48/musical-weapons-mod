@@ -27,17 +27,15 @@ public class TrumpetItem extends Item {
         super(settings);
     }
 
-    // Получаем текущий режим из NBT-тегов предмета: 0 = Атака, 1 = Лечение
+    // 0 = Атака, 1 = Лечение
     public static int getMode(ItemStack stack) {
         return stack.hasTag() ? stack.getTag().getInt("TrumpetMode") : 0;
     }
 
-    // Сохраняем выбранный режим в NBT-теги предмета
     public static void setMode(ItemStack stack, int mode) {
         stack.getOrCreateTag().putInt("TrumpetMode", mode);
     }
 
-    // Нажатие ПКМ: смена режима
     @Override
     public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
         ItemStack stack = user.getStackInHand(hand);
@@ -57,22 +55,21 @@ public class TrumpetItem extends Item {
         return TypedActionResult.success(stack, world.isClient());
     }
 
-    // Выстрел из трубы (вызывается на сервере после отпускания ЛКМ)
     public void shoot(World world, PlayerEntity player, ItemStack stack, int chargeTicks) {
         if (world.isClient || player.getItemCooldownManager().isCoolingDown(this)) {
             return;
         }
 
         int mode = getMode(stack);
-        // 40 тиков = 2 секунды (Атака), 80 тиков = 4 секунды (Лечение)
         int requiredTicks = (mode == 1) ? 80 : 40;
         boolean isFullyCharged = chargeTicks >= requiredTicks;
 
-        // Звук выстрела (ниже и мощнее, если прицел был полным)
-        float pitch = isFullyCharged ? 0.7f : 1.2f;
-        world.playSound(null, player.getBlockPos(), SoundEvents.EVENT_RAID_HORN, SoundCategory.PLAYERS, 1.0f, pitch);
+        // Рабочий звук трубы для 1.16.5 (комбинация баса и флейты)
+        float pitch = isFullyCharged ? 0.8f : 1.3f;
+        world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_BASS, SoundCategory.PLAYERS, 1.5f, pitch);
+        world.playSound(null, player.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_FLUTE, SoundCategory.PLAYERS, 1.2f, pitch);
 
-        // Настраиваем луч на дистанцию 50 блоков от глаз игрока
+        // Луч на 50 блоков
         double maxDistance = 50.0;
         Vec3d startVec = player.getCameraPosVec(1.0F);
         Vec3d lookVec = player.getRotationVec(1.0F);
@@ -85,7 +82,7 @@ public class TrumpetItem extends Item {
                 maxDistance * maxDistance
         );
 
-        // Рисуем линию из частиц нот от игрока до точки попадания (или на 50 блоков)
+        // Частицы нот вдоль линии выстрела
         double actualDistance = (hitResult != null) ? startVec.distanceTo(hitResult.getPos()) : maxDistance;
         if (world instanceof ServerWorld) {
             ServerWorld serverWorld = (ServerWorld) world;
@@ -95,27 +92,23 @@ public class TrumpetItem extends Item {
             }
         }
 
-        // Если луч попал в живое существо
         if (hitResult != null && hitResult.getEntity() instanceof LivingEntity) {
             LivingEntity target = (LivingEntity) hitResult.getEntity();
 
             if (mode == 1) {
-                // Режим лечения: хилим только других игроков или прирученных питомцев
                 if (target instanceof PlayerEntity || (target instanceof TameableEntity && ((TameableEntity) target).isTamed())) {
-                    float healAmount = isFullyCharged ? 10.0F : 1.0F; // 5 сердец (10 HP) или 0.5 сердца (1 HP)
+                    float healAmount = isFullyCharged ? 10.0F : 1.0F;
                     target.heal(healAmount);
                     if (world instanceof ServerWorld) {
                         ((ServerWorld) world).spawnParticles(ParticleTypes.HEART, target.getX(), target.getEyeY(), target.getZ(), 6, 0.3, 0.3, 0.3, 0.1);
                     }
                 }
             } else {
-                // Режим атаки: наносим урон
-                float damage = isFullyCharged ? 10.0F : 2.0F; // 5 сердец (10 HP) или 1 сердце (2 HP)
+                float damage = isFullyCharged ? 10.0F : 2.0F;
                 target.damage(DamageSource.player(player), damage);
             }
         }
 
-        // Кулдаун 10 тиков (0.5 сек) от спама и трата 1 единицы прочности
         player.getItemCooldownManager().set(this, 10);
         stack.damage(1, player, (p) -> p.sendToolBreakStatus(Hand.MAIN_HAND));
     }
