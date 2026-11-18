@@ -53,7 +53,7 @@ public class ViolinItem extends Item {
         if (!world.isClient) {
             Text modeText = (nextMode == 0)
                     ? new LiteralText("♪ Режим скрипки: Рывок (зажать до 3 сек)").formatted(Formatting.AQUA)
-                    : new LiteralText("♪ Режим скрипки: Бросок смычка (зажать 5 сек)").formatted(Formatting.LIGHT_PURPLE);
+                    : new LiteralText("♪ Режим скрипки: Бросок смычка (до 40 бл., зажать до 5 сек)").formatted(Formatting.LIGHT_PURPLE);
             user.sendMessage(modeText, true);
 
             float pitch = (nextMode == 0) ? 1.2f : 1.6f;
@@ -86,7 +86,7 @@ public class ViolinItem extends Item {
             if (isFullCharge) {
                 player.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 600, 0, false, false, true));
                 stack.getOrCreateTag().putBoolean("ViolinSlowFall", true);
-                stack.getOrCreateTag().putInt("ViolinAirTicks", 0);
+                stack.getTag().putInt("ViolinAirTicks", 0);
             }
 
             world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.VIOLIN_DASH_SHOT_SOUND, SoundCategory.PLAYERS, 1.3f, 1.0f);
@@ -98,15 +98,14 @@ public class ViolinItem extends Item {
             stack.damage(1, player, (p) -> p.sendToolBreakStatus(Hand.MAIN_HAND));
 
         } else {
-            if (chargeTicks < 100) {
-                player.sendMessage(new LiteralText("Смычок не заряжен (нужно 5 сек)!").formatted(Formatting.RED), true);
-                return;
-            }
+            int clampedTicks = Math.max(1, Math.min(chargeTicks, 100));
+            float ratio = clampedTicks / 100.0f;
+            double maxRange = Math.max(1.0, 40.0 * ratio);
 
             setBowThrown(stack, true);
 
-            ViolinBowEntity bowEntity = new ViolinBowEntity(world, player, stack);
-            bowEntity.setProperties(player, player.pitch, player.yaw, 0.0F, 1.5F, 0.0F);
+            ViolinBowEntity bowEntity = new ViolinBowEntity(world, player, stack, maxRange);
+            bowEntity.setProperties(player, player.pitch, player.yaw, 0.0F, 1.8F, 0.0F);
             world.spawnEntity(bowEntity);
 
             world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.VIOLIN_THROW_SHOT_SOUND, SoundCategory.PLAYERS, 1.3f, 1.0f);
