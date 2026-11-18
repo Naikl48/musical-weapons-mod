@@ -164,11 +164,13 @@ public class MusicalWeaponsClient implements ClientModInitializer {
                                 client.player.sendMessage(new LiteralText(String.format("Заряд рывка: %.1f / 7.0 бл.", dist)).formatted(Formatting.YELLOW), true);
                             }
                         } else {
-                            if (violinChargeTicks >= reqTicks) {
-                                client.player.sendMessage(new LiteralText("★ СМЫЧОК ГОТОВ К БРОСКУ ★").formatted(Formatting.LIGHT_PURPLE), true);
+                            int clamped = Math.min(violinChargeTicks, reqTicks);
+                            double range = 40.0 * (clamped / (float) reqTicks);
+                            if (clamped >= reqTicks) {
+                                client.player.sendMessage(new LiteralText("★ БРОСОК СМЫЧКА: 40.0 БЛ. ★").formatted(Formatting.LIGHT_PURPLE), true);
                             } else {
-                                int percent = (int) ((violinChargeTicks / (float) reqTicks) * 100);
-                                client.player.sendMessage(new LiteralText("Подготовка броска: " + percent + "%").formatted(Formatting.YELLOW), true);
+                                int percent = (int) ((clamped / (float) reqTicks) * 100);
+                                client.player.sendMessage(new LiteralText(String.format("Заряд броска: %d%% (%.1f / 40.0 бл.)", percent, range)).formatted(Formatting.YELLOW), true);
                             }
                         }
                     } else if (isViolinCharging) {
@@ -190,12 +192,11 @@ public class MusicalWeaponsClient implements ClientModInitializer {
                         activeViolinChargeSound = null;
                     }
                     isViolinCharging = false;
-                    violinChargeTicks = 0;
-                }
-
-                wasAttackPressed = isPressed;
-            } else {
-                if (activeViolinChargeSound != null) {
+violinChargeTicks = 0;
+}
+wasAttackPressed = isPressed;
+} else {
+if (activeViolinChargeSound != null) {
 client.getSoundManager().stop(activeViolinChargeSound);
 activeViolinChargeSound = null;
 }
