@@ -17,9 +17,9 @@ import net.minecraft.util.registry.Registry;
 public class MusicalWeaponsMod implements ModInitializer {
     public static final String MOD_ID = "musicalweapons";
     public static final Identifier USE_HARP_PACKET = new Identifier(MOD_ID, "use_harp");
+    public static final Identifier USE_TRUMPET_PACKET = new Identifier(MOD_ID, "use_trumpet");
     public static final Identifier SPAWN_NOTE_PACKET = new Identifier(MOD_ID, "spawn_note");
 
-    // Регистрация 3 твоих звуков для навыков
     public static final SoundEvent HARP_ATTACK_SOUND = registerSound("harp_attack");
     public static final SoundEvent HARP_SHIELD_SOUND = registerSound("harp_shield");
     public static final SoundEvent HARP_STEALTH_SOUND = registerSound("harp_stealth");
@@ -46,28 +46,33 @@ public class MusicalWeaponsMod implements ModInitializer {
     public static final Item WOODEN_HARP = Registry.register(
             Registry.ITEM, new Identifier(MOD_ID, "wooden_harp"),
             new HarpItem(new FabricItemSettings().group(ItemGroup.COMBAT).maxDamage(100),
-                    6.0f, 10.0, 30,   // Урон 6, дальность 10, кд 1.5с
-                    3.0, 1,           // Отброс 3, +4 сердца
-                    100, 200, 10.0, 0 // Невид. 5с, свет 10с (10 бл.), скорость +20%
+                    6.0f, 10.0, 30,
+                    3.0, 1,
+                    100, 200, 10.0, 0
             )
     );
 
     public static final Item IRON_HARP = Registry.register(
             Registry.ITEM, new Identifier(MOD_ID, "iron_harp"),
             new HarpItem(new FabricItemSettings().group(ItemGroup.COMBAT).maxDamage(250),
-                    8.0f, 15.0, 20,   // Урон 8, дальность 15, кд 1с
-                    5.0, 2,           // Отброс 5, +6 сердец
-                    200, 300, 15.0, 1 // Невид. 10с, свет 15с (15 бл.), скорость +40%
+                    8.0f, 15.0, 20,
+                    5.0, 2,
+                    200, 300, 15.0, 1
             )
     );
 
     public static final Item GOLDEN_HARP = Registry.register(
             Registry.ITEM, new Identifier(MOD_ID, "golden_harp"),
             new HarpItem(new FabricItemSettings().group(ItemGroup.COMBAT).maxDamage(500),
-                    10.0f, 30.0, 20,  // Урон 10, дальность 30, кд 1с
-                    7.0, 3,           // Отброс 7, +8 сердец
-                    400, 400, 30.0, 2 // Невид. 20с, свет 20с (30 бл.), скорость +60%
+                    10.0f, 30.0, 20,
+                    7.0, 3,
+                    400, 400, 30.0, 2
             )
+    );
+
+    public static final Item TRUMPET = Registry.register(
+            Registry.ITEM, new Identifier(MOD_ID, "trumpet"),
+            new TrumpetItem(new FabricItemSettings().group(ItemGroup.COMBAT).maxDamage(300))
     );
 
     @Override
@@ -77,6 +82,16 @@ public class MusicalWeaponsMod implements ModInitializer {
                 ItemStack stack = player.getMainHandStack();
                 if (stack.getItem() instanceof HarpItem) {
                     ((HarpItem) stack.getItem()).activateSkill(player.world, player, stack);
+                }
+            });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(USE_TRUMPET_PACKET, (server, player, handler, buf, responseSender) -> {
+            int chargeTicks = buf.readInt();
+            server.execute(() -> {
+                ItemStack stack = player.getMainHandStack();
+                if (stack.getItem() instanceof TrumpetItem) {
+                    ((TrumpetItem) stack.getItem()).shoot(player.world, player, stack, chargeTicks);
                 }
             });
         });
