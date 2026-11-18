@@ -121,7 +121,7 @@ public class ViolinItem extends Item {
             PlayerEntity player = (PlayerEntity) entity;
 
             if (stack.getTag().getBoolean("ViolinSlowFall")) {
-                int airTicks = stack.getInt("ViolinAirTicks") + 1;
+                int airTicks = stack.getTag().getInt("ViolinAirTicks") + 1;
                 stack.getTag().putInt("ViolinAirTicks", airTicks);
 
                 if (airTicks > 3 && player.isOnGround()) {
