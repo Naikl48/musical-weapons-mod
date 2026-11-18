@@ -8,13 +8,19 @@ import net.fabricmc.fabric.api.client.rendereregistry.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.minecraft.client.render.entity.FlyingItemEntityRenderer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.text.LiteralText;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.Formatting;
 
 import java.util.UUID;
 
 public class MusicalWeaponsClient implements ClientModInitializer {
     private boolean wasAttackPressed = false;
+    public static int trumpetChargeTicks = 0;
+    public static boolean isTrumpetAiming = false;
 
     @Override
     public void onInitializeClient() {
@@ -45,14 +51,16 @@ public class MusicalWeaponsClient implements ClientModInitializer {
         });
 
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
-            if (player.getStackInHand(hand).getItem() instanceof HarpItem) {
+            Item item = player.getStackInHand(hand).getItem();
+            if (item instanceof HarpItem || item instanceof TrumpetItem) {
                 return ActionResult.FAIL;
             }
             return ActionResult.PASS;
         });
 
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-            if (player.getStackInHand(hand).getItem() instanceof HarpItem) {
+            Item item = player.getStackInHand(hand).getItem();
+            if (item instanceof HarpItem || item instanceof TrumpetItem) {
                 return ActionResult.FAIL;
             }
             return ActionResult.PASS;
@@ -61,12 +69,46 @@ public class MusicalWeaponsClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player != null && client.currentScreen == null) {
                 boolean isPressed = client.options.keyAttack.isPressed();
+                ItemStack mainStack = client.player.getMainHandStack();
+                Item mainHandItem = mainStack.getItem();
+
                 if (isPressed && !wasAttackPressed) {
-                    if (client.player.getMainHandStack().getItem() instanceof HarpItem) {
+                    if (mainHandItem instanceof HarpItem) {
                         ClientPlayNetworking.send(MusicalWeaponsMod.USE_HARP_PACKET, new PacketByteBuf(Unpooled.buffer()));
                     }
                 }
+
+                if (mainHandItem instanceof TrumpetItem && !client.player.getItemCooldownManager().isCoolingDown(mainHandItem)) {
+                    if (isPressed) {
+                        isTrumpetAiming = true;
+                        trumpetChargeTicks++;
+
+                        int mode = TrumpetItem.getMode(mainStack);
+                        int reqTicks = (mode == 1) ? 80 : 40;
+                        if (trumpetChargeTicks >= reqTicks) {
+                            Formatting color = (mode == 1) ? Formatting.GREEN : Formatting.RED;
+                            client.player.sendMessage(new LiteralText("★ ПРИЦЕЛ ГОТОВ ★").formatted(color), true);
+                        } else {
+                            int percent = (int) ((trumpetChargeTicks / (float) reqTicks) * 100);
+                            client.player.sendMessage(new LiteralText("Прицеливание: " + percent + "%").formatted(Formatting.YELLOW), true);
+                        }
+                    } else if (isTrumpetAiming) {
+                        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+                        buf.writeInt(trumpetChargeTicks);
+                        ClientPlayNetworking.send(MusicalWeaponsMod.USE_TRUMPET_PACKET, buf);
+
+                        isTrumpetAiming = false;
+                        trumpetChargeTicks = 0;
+                    }
+                } else {
+                    isTrumpetAiming = false;
+                    trumpetChargeTicks = 0;
+                }
+
                 wasAttackPressed = isPressed;
+            } else {
+                isTrumpetAiming = false;
+                trumpetChargeTicks = 0;
             }
         });
     }
