@@ -11,6 +11,7 @@ import net.minecraft.client.render.entity.FlyingItemEntityRenderer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketByteBuf;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.LiteralText;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
@@ -22,9 +23,15 @@ public class MusicalWeaponsClient implements ClientModInitializer {
     public static int trumpetChargeTicks = 0;
     public static boolean isTrumpetAiming = false;
 
+    public static int violinChargeTicks = 0;
+    public static boolean isViolinCharging = false;
+
     @Override
     public void onInitializeClient() {
         EntityRendererRegistry.INSTANCE.register(MusicalWeaponsMod.RED_NOTE_ENTITY,
+                (dispatcher, context) -> new FlyingItemEntityRenderer<>(dispatcher, context.getItemRenderer()));
+
+        EntityRendererRegistry.INSTANCE.register(MusicalWeaponsMod.VIOLIN_BOW_ENTITY,
                 (dispatcher, context) -> new FlyingItemEntityRenderer<>(dispatcher, context.getItemRenderer()));
 
         ClientPlayNetworking.registerGlobalReceiver(MusicalWeaponsMod.SPAWN_NOTE_PACKET, (client, handler, buf, responseSender) -> {
@@ -50,9 +57,32 @@ public class MusicalWeaponsClient implements ClientModInitializer {
             });
         });
 
+        ClientPlayNetworking.registerGlobalReceiver(MusicalWeaponsMod.SPAWN_BOW_PACKET, (client, handler, buf, responseSender) -> {
+            int entityId = buf.readVarInt();
+            UUID uuid = buf.readUuid();
+            double x = buf.readDouble();
+            double y = buf.readDouble();
+            double z = buf.readDouble();
+            float pitch = (buf.readByte() * 360.0F) / 256.0F;
+            float yaw = (buf.readByte() * 360.0F) / 256.0F;
+
+            client.execute(() -> {
+                if (client.world != null) {
+                    ViolinBowEntity entity = new ViolinBowEntity(MusicalWeaponsMod.VIOLIN_BOW_ENTITY, client.world);
+                    entity.updatePosition(x, y, z);
+                    entity.updateTrackedPosition(x, y, z);
+                    entity.pitch = pitch;
+                    entity.yaw = yaw;
+                    entity.setEntityId(entityId);
+                    entity.setUuid(uuid);
+                    client.world.addEntity(entityId, entity);
+                }
+            });
+        });
+
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
             Item item = player.getStackInHand(hand).getItem();
-            if (item instanceof HarpItem || item instanceof TrumpetItem) {
+            if (item instanceof HarpItem || item instanceof TrumpetItem || item instanceof ViolinItem) {
                 return ActionResult.FAIL;
             }
             return ActionResult.PASS;
@@ -60,7 +90,7 @@ public class MusicalWeaponsClient implements ClientModInitializer {
 
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             Item item = player.getStackInHand(hand).getItem();
-            if (item instanceof HarpItem || item instanceof TrumpetItem) {
+            if (item instanceof HarpItem || item instanceof TrumpetItem || item instanceof ViolinItem) {
                 return ActionResult.FAIL;
             }
             return ActionResult.PASS;
@@ -105,10 +135,55 @@ public class MusicalWeaponsClient implements ClientModInitializer {
                     trumpetChargeTicks = 0;
                 }
 
+                if (mainHandItem instanceof ViolinItem && !client.player.getItemCooldownManager().isCoolingDown(mainHandItem) && !ViolinItem.isBowThrown(mainStack)) {
+                    if (isPressed) {
+                        isViolinCharging = true;
+                        violinChargeTicks++;
+
+                        int mode = ViolinItem.getMode(mainStack);
+                        int reqTicks = (mode == 1) ? 200 : 100;
+
+                        int step = (mode == 1) ? 50 : 25;
+                        if (violinChargeTicks > 0 && violinChargeTicks <= reqTicks && violinChargeTicks % step == 0) {
+                            float pitch = 0.8F + (violinChargeTicks / (float) reqTicks) * 0.8F;
+                            client.player.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP, 1.0F, pitch);
+                        }
+
+                        if (mode == 0) {
+                            int clamped = Math.min(violinChargeTicks, 100);
+                            double dist = 2.0 + 5.0 * (clamped / 100.0);
+                            if (clamped >= 100) {
+                                client.player.sendMessage(new LiteralText("★ РЫВОК: 7.0 БЛ. + ПЛАВНОЕ ПАДЕНИЕ ★").formatted(Formatting.AQUA), true);
+                            } else {
+                                client.player.sendMessage(new LiteralText(String.format("Заряд рывка: %.1f / 7.0 бл.", dist)).formatted(Formatting.YELLOW), true);
+                            }
+                        } else {
+                            if (violinChargeTicks >= reqTicks) {
+                                client.player.sendMessage(new LiteralText("★ СМЫЧОК ГОТОВ К БРОСКУ ★").formatted(Formatting.LIGHT_PURPLE), true);
+                            } else {
+                                int percent = (int) ((violinChargeTicks / (float) reqTicks) * 100);
+                                client.player.sendMessage(new LiteralText("Подготовка броска: " + percent + "%").formatted(Formatting.YELLOW), true);
+                            }
+                        }
+                    } else if (isViolinCharging) {
+                        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+                        buf.writeInt(violinChargeTicks);
+                        ClientPlayNetworking.send(MusicalWeaponsMod.USE_VIOLIN_PACKET, buf);
+
+                        isViolinCharging = false;
+                        violinChargeTicks = 0;
+                    }
+                } else {
+                    isViolinCharging = false;
+                    violinChargeTicks = 0;
+                }
+
                 wasAttackPressed = isPressed;
             } else {
                 isTrumpetAiming = false;
                 trumpetChargeTicks = 0;
+                isViolinCharging = false;
+                violinChargeTicks = 0;
             }
         });
     }
