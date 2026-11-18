@@ -6,7 +6,6 @@ import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -120,16 +119,15 @@ public class ViolinItem extends Item {
     public void inventoryTick(ItemStack stack, World world, Entity entity, int slot, boolean selected) {
         if (!world.isClient && entity instanceof PlayerEntity && stack.hasTag()) {
             PlayerEntity player = (PlayerEntity) entity;
-            CompoundTag tag = stack.getTag();
 
-            if (tag.getBoolean("ViolinSlowFall")) {
-                int airTicks = tag.getInt("ViolinAirTicks") + 1;
-                tag.putInt("ViolinAirTicks", airTicks);
+            if (stack.getTag().getBoolean("ViolinSlowFall")) {
+                int airTicks = stack.getTag().getInt("ViolinAirTicks") + 1;
+                stack.getTag().putInt("ViolinAirTicks", airTicks);
 
                 if (airTicks > 3 && player.isOnGround()) {
                     player.removeStatusEffect(StatusEffects.SLOW_FALLING);
-                    tag.putBoolean("ViolinSlowFall", false);
-                    tag.putInt("ViolinAirTicks", 0);
+                    stack.getTag().putBoolean("ViolinSlowFall", false);
+                    stack.getTag().putInt("ViolinAirTicks", 0);
                 }
             }
         }
