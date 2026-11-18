@@ -18,7 +18,9 @@ public class MusicalWeaponsMod implements ModInitializer {
     public static final String MOD_ID = "musicalweapons";
     public static final Identifier USE_HARP_PACKET = new Identifier(MOD_ID, "use_harp");
     public static final Identifier USE_TRUMPET_PACKET = new Identifier(MOD_ID, "use_trumpet");
+    public static final Identifier USE_VIOLIN_PACKET = new Identifier(MOD_ID, "use_violin");
     public static final Identifier SPAWN_NOTE_PACKET = new Identifier(MOD_ID, "spawn_note");
+    public static final Identifier SPAWN_BOW_PACKET = new Identifier(MOD_ID, "spawn_bow");
 
     public static final SoundEvent HARP_ATTACK_SOUND = registerSound("harp_attack");
     public static final SoundEvent HARP_SHIELD_SOUND = registerSound("harp_shield");
@@ -33,10 +35,24 @@ public class MusicalWeaponsMod implements ModInitializer {
             Registry.ITEM, new Identifier(MOD_ID, "red_note"), new Item(new Item.Settings())
     );
 
+    public static final Item VIOLIN_BOW_ITEM = Registry.register(
+            Registry.ITEM, new Identifier(MOD_ID, "violin_bow"), new Item(new Item.Settings())
+    );
+
     public static final EntityType<RedNoteEntity> RED_NOTE_ENTITY = Registry.register(
             Registry.ENTITY_TYPE,
             new Identifier(MOD_ID, "red_note"),
             FabricEntityTypeBuilder.<RedNoteEntity>create(SpawnGroup.MISC, RedNoteEntity::new)
+                    .dimensions(EntityDimensions.fixed(0.35f, 0.35f))
+                    .trackRangeBlocks(64)
+                    .trackedUpdateRate(10)
+                    .build()
+    );
+
+    public static final EntityType<ViolinBowEntity> VIOLIN_BOW_ENTITY = Registry.register(
+            Registry.ENTITY_TYPE,
+            new Identifier(MOD_ID, "violin_bow"),
+            FabricEntityTypeBuilder.<ViolinBowEntity>create(SpawnGroup.MISC, ViolinBowEntity::new)
                     .dimensions(EntityDimensions.fixed(0.35f, 0.35f))
                     .trackRangeBlocks(64)
                     .trackedUpdateRate(10)
@@ -75,6 +91,11 @@ public class MusicalWeaponsMod implements ModInitializer {
             new TrumpetItem(new FabricItemSettings().group(ItemGroup.COMBAT).maxDamage(300))
     );
 
+    public static final Item VIOLIN = Registry.register(
+            Registry.ITEM, new Identifier(MOD_ID, "violin"),
+            new ViolinItem(new FabricItemSettings().group(ItemGroup.COMBAT).maxDamage(350))
+    );
+
     @Override
     public void onInitialize() {
         ServerPlayNetworking.registerGlobalReceiver(USE_HARP_PACKET, (server, player, handler, buf, responseSender) -> {
@@ -92,6 +113,16 @@ public class MusicalWeaponsMod implements ModInitializer {
                 ItemStack stack = player.getMainHandStack();
                 if (stack.getItem() instanceof TrumpetItem) {
                     ((TrumpetItem) stack.getItem()).shoot(player.world, player, stack, chargeTicks);
+                }
+            });
+        });
+
+        ServerPlayNetworking.registerGlobalReceiver(USE_VIOLIN_PACKET, (server, player, handler, buf, responseSender) -> {
+            int chargeTicks = buf.readInt();
+            server.execute(() -> {
+                ItemStack stack = player.getMainHandStack();
+                if (stack.getItem() instanceof ViolinItem) {
+                    ((ViolinItem) stack.getItem()).releaseSkill(player.world, player, stack, chargeTicks);
                 }
             });
         });
