@@ -9,11 +9,11 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.item.HeldItemRenderer;
 import net.minecraft.client.render.model.json.ModelTransformation;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.Vector3f;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Arm;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.Vec3f;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -56,7 +56,7 @@ public abstract class HeldItemRendererMixin {
             }
 
             matrices.translate(offsetX, offsetY, offsetZ);
-            matrices.multiply(Vector3f.POSITIVE_Z.getDegreesQuaternion(75.0f * side));
+            matrices.multiply(Vec3f.POSITIVE_Z.getDegreesQuaternion(75.0f * side));
             matrices.scale(0.85f, 0.85f, 0.85f);
 
             ItemStack bowStack = new ItemStack(MusicalWeaponsMod.VIOLIN_BOW_ITEM);
