@@ -1,137 +1,197 @@
 package com.example.musicalweapons;
 
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerEntity;
+import io.netty.buffer.Unpooled;
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendereregistry.v1.EntityRendererRegistry;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.minecraft.client.render.entity.FlyingItemEntityRenderer;
+import net.minecraft.client.sound.PositionedSoundInstance;
+import net.minecraft.client.sound.SoundInstance;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
+import net.minecraft.network.PacketByteBuf;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.text.LiteralText;
-import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.TypedActionResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
 
-public class ViolinItem extends Item {
+import java.util.UUID;
 
-    public ViolinItem(Settings settings) {
-        super(settings);
-    }
+public class MusicalWeaponsClient implements ClientModInitializer {
+    private boolean wasAttackPressed = false;
+    public static int trumpetChargeTicks = 0;
+    public static boolean isTrumpetAiming = false;
 
-    public static int getMode(ItemStack stack) {
-        return stack.hasTag() ? stack.getTag().getInt("ViolinMode") : 0;
-    }
-
-    public static void setMode(ItemStack stack, int mode) {
-        stack.getOrCreateTag().putInt("ViolinMode", mode);
-    }
-
-    public static boolean isBowThrown(ItemStack stack) {
-        return stack.hasTag() && stack.getTag().getBoolean("BowThrown");
-    }
-
-    public static void setBowThrown(ItemStack stack, boolean thrown) {
-        stack.getOrCreateTag().putBoolean("BowThrown", thrown);
-    }
+    public static int violinChargeTicks = 0;
+    public static boolean isViolinCharging = false;
+    private static SoundInstance activeViolinChargeSound = null;
 
     @Override
-    public TypedActionResult<ItemStack> use(World world, PlayerEntity user, Hand hand) {
-        ItemStack stack = user.getStackInHand(hand);
-        if (isBowThrown(stack)) {
-            return TypedActionResult.fail(stack);
-        }
+    public void onInitializeClient() {
+        EntityRendererRegistry.INSTANCE.register(MusicalWeaponsMod.RED_NOTE_ENTITY,
+                (dispatcher, context) -> new FlyingItemEntityRenderer<>(dispatcher, context.getItemRenderer()));
 
-        int nextMode = (getMode(stack) + 1) % 2;
-        setMode(stack, nextMode);
+        EntityRendererRegistry.INSTANCE.register(MusicalWeaponsMod.VIOLIN_BOW_ENTITY,
+                (dispatcher, context) -> new FlyingItemEntityRenderer<>(dispatcher, context.getItemRenderer()));
 
-        if (!world.isClient) {
-            Text modeText = (nextMode == 0)
-                    ? new LiteralText("♪ Режим скрипки: Рывок (зажать до 5 сек)").formatted(Formatting.AQUA)
-                    : new LiteralText("♪ Режим скрипки: Бросок смычка (зажать 10 сек)").formatted(Formatting.LIGHT_PURPLE);
-            user.sendMessage(modeText, true);
+        ClientPlayNetworking.registerGlobalReceiver(MusicalWeaponsMod.SPAWN_NOTE_PACKET, (client, handler, buf, responseSender) -> {
+            int entityId = buf.readVarInt();
+            UUID uuid = buf.readUuid();
+            double x = buf.readDouble();
+            double y = buf.readDouble();
+            double z = buf.readDouble();
+            float pitch = (buf.readByte() * 360.0F) / 256.0F;
+            float yaw = (buf.readByte() * 360.0F) / 256.0F;
 
-            float pitch = (nextMode == 0) ? 1.2f : 1.6f;
-            world.playSound(null, user.getBlockPos(), SoundEvents.BLOCK_NOTE_BLOCK_HARP, SoundCategory.PLAYERS, 1.0f, pitch);
-        }
-
-        return TypedActionResult.success(stack, world.isClient());
-    }
-
-    public void releaseSkill(World world, PlayerEntity player, ItemStack stack, int chargeTicks) {
-        if (world.isClient || player.getItemCooldownManager().isCoolingDown(this) || isBowThrown(stack)) {
-            return;
-        }
-
-        int mode = getMode(stack);
-
-        if (mode == 0) {
-            int clampedTicks = Math.min(chargeTicks, 100);
-            float ratio = clampedTicks / 100.0f;
-            boolean isFullCharge = clampedTicks >= 100;
-
-            double targetBlocks = 2.0 + (5.0 * ratio);
-            double velocityStrength = 0.65 + (targetBlocks - 2.0) * 0.27;
-
-            Vec3d lookVec = player.getRotationVec(1.0F).normalize();
-            player.setVelocity(lookVec.multiply(velocityStrength));
-            player.velocityModified = true;
-            player.fallDistance = 0.0F;
-
-            if (isFullCharge) {
-                player.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOW_FALLING, 600, 0, false, false, true));
-                stack.getOrCreateTag().putBoolean("ViolinSlowFall", true);
-                stack.getOrCreateTag().putInt("ViolinAirTicks", 0);
-            }
-
-            world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.VIOLIN_DASH_SHOT_SOUND, SoundCategory.PLAYERS, 1.3f, 1.0f);
-            if (world instanceof ServerWorld) {
-                ((ServerWorld) world).spawnParticles(ParticleTypes.NOTE, player.getX(), player.getY() + 1.0, player.getZ(), 12, 0.4, 0.4, 0.4, 0.1);
-            }
-
-            player.getItemCooldownManager().set(this, 20);
-            stack.damage(1, player, (p) -> p.sendToolBreakStatus(Hand.MAIN_HAND));
-
-        } else {
-            if (chargeTicks < 200) {
-                player.sendMessage(new LiteralText("Смычок не заряжен (нужно 10 сек)!").formatted(Formatting.RED), true);
-                return;
-            }
-
-            setBowThrown(stack, true);
-
-            ViolinBowEntity bowEntity = new ViolinBowEntity(world, player, stack);
-            bowEntity.setProperties(player, player.pitch, player.yaw, 0.0F, 1.5F, 0.0F);
-            world.spawnEntity(bowEntity);
-
-            world.playSound(null, player.getBlockPos(), MusicalWeaponsMod.VIOLIN_THROW_SHOT_SOUND, SoundCategory.PLAYERS, 1.3f, 1.0f);
-            player.getItemCooldownManager().set(this, 20);
-            stack.damage(1, player, (p) -> p.sendToolBreakStatus(Hand.MAIN_HAND));
-        }
-    }
-
-    @Override
-    public void inventoryTick(ItemStack stack, World world, Entity entity, int slot, boolean selected) {
-        if (!world.isClient && entity instanceof PlayerEntity && stack.hasTag()) {
-            PlayerEntity player = (PlayerEntity) entity;
-            CompoundTag tag = stack.getTag();
-
-            if (tag.getBoolean("ViolinSlowFall")) {
-                int airTicks = tag.getInt("ViolinAirTicks") + 1;
-                tag.putInt("ViolinAirTicks", airTicks);
-
-                if (airTicks > 3 && player.isOnGround()) {
-                    player.removeStatusEffect(StatusEffects.SLOW_FALLING);
-                    tag.putBoolean("ViolinSlowFall", false);
-                    tag.putInt("ViolinAirTicks", 0);
+            client.execute(() -> {
+                if (client.world != null) {
+                    RedNoteEntity entity = new RedNoteEntity(MusicalWeaponsMod.RED_NOTE_ENTITY, client.world);
+                    entity.updatePosition(x, y, z);
+                    entity.updateTrackedPosition(x, y, z);
+                    entity.pitch = pitch;
+                    entity.yaw = yaw;
+                    entity.setEntityId(entityId);
+                    entity.setUuid(uuid);
+                    client.world.addEntity(entityId, entity);
                 }
+            });
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(MusicalWeaponsMod.SPAWN_BOW_PACKET, (client, handler, buf, responseSender) -> {
+            int entityId = buf.readVarInt();
+            UUID uuid = buf.readUuid();
+            double x = buf.readDouble();
+            double y = buf.readDouble();
+            double z = buf.readDouble();
+            float pitch = (buf.readByte() * 360.0F) / 256.0F;
+            float yaw = (buf.readByte() * 360.0F) / 256.0F;
+
+            client.execute(() -> {
+                if (client.world != null) {
+                    ViolinBowEntity entity = new ViolinBowEntity(MusicalWeaponsMod.VIOLIN_BOW_ENTITY, client.world);
+                    entity.updatePosition(x, y, z);
+                    entity.updateTrackedPosition(x, y, z);
+                    entity.pitch = pitch;
+                    entity.yaw = yaw;
+                    entity.setEntityId(entityId);
+                    entity.setUuid(uuid);
+                    client.world.addEntity(entityId, entity);
+                }
+            });
+        });
+
+        AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) -> {
+            Item item = player.getStackInHand(hand).getItem();
+            if (item instanceof HarpItem || item instanceof TrumpetItem || item instanceof ViolinItem) {
+                return ActionResult.FAIL;
             }
-        }
-    }
-}
+            return ActionResult.PASS;
+        });
+
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            Item item = player.getStackInHand(hand).getItem();
+            if (item instanceof HarpItem || item instanceof TrumpetItem || item instanceof ViolinItem) {
+                return ActionResult.FAIL;
+            }
+            return ActionResult.PASS;
+        });
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.player != null && client.currentScreen == null) {
+                boolean isPressed = client.options.keyAttack.isPressed();
+                ItemStack mainStack = client.player.getMainHandStack();
+                Item mainHandItem = mainStack.getItem();
+
+                if (isPressed && !wasAttackPressed) {
+                    if (mainHandItem instanceof HarpItem) {
+                        ClientPlayNetworking.send(MusicalWeaponsMod.USE_HARP_PACKET, new PacketByteBuf(Unpooled.buffer()));
+                    }
+                }
+
+                if (mainHandItem instanceof TrumpetItem && !client.player.getItemCooldownManager().isCoolingDown(mainHandItem)) {
+                    if (isPressed) {
+                        isTrumpetAiming = true;
+                        trumpetChargeTicks++;
+
+                        int mode = TrumpetItem.getMode(mainStack);
+                        int reqTicks = (mode == 1) ? 80 : 40;
+                        if (trumpetChargeTicks >= reqTicks) {
+                            Formatting color = (mode == 1) ? Formatting.GREEN : Formatting.RED;
+                            client.player.sendMessage(new LiteralText("★ ПРИЦЕЛ ГОТОВ ★").formatted(color), true);
+                        } else {
+                            int percent = (int) ((trumpetChargeTicks / (float) reqTicks) * 100);
+                            client.player.sendMessage(new LiteralText("Прицеливание: " + percent + "%").formatted(Formatting.YELLOW), true);
+                        }
+                    } else if (isTrumpetAiming) {
+                        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+                        buf.writeInt(trumpetChargeTicks);
+                        ClientPlayNetworking.send(MusicalWeaponsMod.USE_TRUMPET_PACKET, buf);
+
+                        isTrumpetAiming = false;
+                        trumpetChargeTicks = 0;
+                    }
+                } else {
+                    isTrumpetAiming = false;
+                    trumpetChargeTicks = 0;
+                }
+
+                if (mainHandItem instanceof ViolinItem && !client.player.getItemCooldownManager().isCoolingDown(mainHandItem) && !ViolinItem.isBowThrown(mainStack)) {
+                    if (isPressed) {
+                        int mode = ViolinItem.getMode(mainStack);
+
+                        if (!isViolinCharging) {
+                            SoundEvent chargeSound = (mode == 1)
+                                    ? MusicalWeaponsMod.VIOLIN_THROW_CHARGE_SOUND
+                                    : MusicalWeaponsMod.VIOLIN_DASH_CHARGE_SOUND;
+                            activeViolinChargeSound = PositionedSoundInstance.master(chargeSound, 1.0F);
+                            client.getSoundManager().play(activeViolinChargeSound);
+                        }
+
+                        isViolinCharging = true;
+                        violinChargeTicks++;
+
+                        int reqTicks = (mode == 1) ? 200 : 100;
+
+                        if (mode == 0) {
+                            int clamped = Math.min(violinChargeTicks, 100);
+                            double dist = 2.0 + 5.0 * (clamped / 100.0);
+                            if (clamped >= 100) {
+                                client.player.sendMessage(new LiteralText("★ РЫВОК: 7.0 БЛ. + ПЛАВНОЕ ПАДЕНИЕ ★").formatted(Formatting.AQUA), true);
+                            } else {
+                                client.player.sendMessage(new LiteralText(String.format("Заряд рывка: %.1f / 7.0 бл.", dist)).formatted(Formatting.YELLOW), true);
+                            }
+                        } else {
+                            if (violinChargeTicks >= reqTicks) {
+                                client.player.sendMessage(new LiteralText("★ СМЫЧОК ГОТОВ К БРОСКУ ★").formatted(Formatting.LIGHT_PURPLE), true);
+                            } else {
+                                int percent = (int) ((violinChargeTicks / (float) reqTicks) * 100);
+                                client.player.sendMessage(new LiteralText("Подготовка броска: " + percent + "%").formatted(Formatting.YELLOW), true);
+                            }
+                        }
+                    } else if (isViolinCharging) {
+                        if (activeViolinChargeSound != null) {
+                            client.getSoundManager().stop(activeViolinChargeSound);
+                            activeViolinChargeSound = null;
+                        }
+
+                        PacketByteBuf buf = new PacketByteBuf(Unpooled.buffer());
+                        buf.writeInt(violinChargeTicks);
+                        ClientPlayNetworking.send(MusicalWeaponsMod.USE_VIOLIN_PACKET, buf);
+
+                        isViolinCharging = false;
+                        violinChargeTicks = 0;
+                    }
+                } else {
+                    if (activeViolinChargeSound != null) {
+                        client.getSoundManager().stop(activeViolinChargeSound);
+                        activeViolinChargeSound = null;
+                    }
+                    isViolinCharging = false;
+                    violinChargeTicks = 0;
+                }
+
+                wasAttackPressed = isPressed;
+            } else {
