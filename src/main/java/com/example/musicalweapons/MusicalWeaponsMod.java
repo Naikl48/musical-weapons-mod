@@ -25,6 +25,10 @@ public class MusicalWeaponsMod implements ModInitializer {
     public static final SoundEvent HARP_ATTACK_SOUND = registerSound("harp_attack");
     public static final SoundEvent HARP_SHIELD_SOUND = registerSound("harp_shield");
     public static final SoundEvent HARP_STEALTH_SOUND = registerSound("harp_stealth");
+    public static final SoundEvent VIOLIN_DASH_CHARGE_SOUND = registerSound("violin_dash_charge");
+    public static final SoundEvent VIOLIN_DASH_SHOT_SOUND = registerSound("violin_dash_shot");
+    public static final SoundEvent VIOLIN_THROW_CHARGE_SOUND = registerSound("violin_throw_charge");
+    public static final SoundEvent VIOLIN_THROW_SHOT_SOUND = registerSound("violin_throw_shot");
 
     private static SoundEvent registerSound(String name) {
         Identifier id = new Identifier(MOD_ID, name);
