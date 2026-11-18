@@ -52,8 +52,8 @@ public class ViolinItem extends Item {
 
         if (!world.isClient) {
             Text modeText = (nextMode == 0)
-                    ? new LiteralText("♪ Режим скрипки: Рывок (зажать до 5 сек)").formatted(Formatting.AQUA)
-                    : new LiteralText("♪ Режим скрипки: Бросок смычка (зажать 10 сек)").formatted(Formatting.LIGHT_PURPLE);
+                    ? new LiteralText("♪ Режим скрипки: Рывок (зажать до 3 сек)").formatted(Formatting.AQUA)
+                    : new LiteralText("♪ Режим скрипки: Бросок смычка (зажать 5 сек)").formatted(Formatting.LIGHT_PURPLE);
             user.sendMessage(modeText, true);
 
             float pitch = (nextMode == 0) ? 1.2f : 1.6f;
@@ -71,9 +71,9 @@ public class ViolinItem extends Item {
         int mode = getMode(stack);
 
         if (mode == 0) {
-            int clampedTicks = Math.min(chargeTicks, 100);
-            float ratio = clampedTicks / 100.0f;
-            boolean isFullCharge = clampedTicks >= 100;
+            int clampedTicks = Math.min(chargeTicks, 60);
+            float ratio = clampedTicks / 60.0f;
+            boolean isFullCharge = clampedTicks >= 60;
 
             double targetBlocks = 2.0 + (5.0 * ratio);
             double velocityStrength = 0.65 + (targetBlocks - 2.0) * 0.27;
@@ -98,8 +98,8 @@ public class ViolinItem extends Item {
             stack.damage(1, player, (p) -> p.sendToolBreakStatus(Hand.MAIN_HAND));
 
         } else {
-            if (chargeTicks < 200) {
-                player.sendMessage(new LiteralText("Смычок не заряжен (нужно 10 сек)!").formatted(Formatting.RED), true);
+            if (chargeTicks < 100) {
+                player.sendMessage(new LiteralText("Смычок не заряжен (нужно 5 сек)!").formatted(Formatting.RED), true);
                 return;
             }
 
@@ -121,7 +121,7 @@ public class ViolinItem extends Item {
             PlayerEntity player = (PlayerEntity) entity;
 
             if (stack.getTag().getBoolean("ViolinSlowFall")) {
-                int airTicks = stack.getTag().getInt("ViolinAirTicks") + 1;
+                int airTicks = stack.getInt("ViolinAirTicks") + 1;
                 stack.getTag().putInt("ViolinAirTicks", airTicks);
 
                 if (airTicks > 3 && player.isOnGround()) {
