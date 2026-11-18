@@ -3,7 +3,7 @@
   "id": "musicalweapons",
   "version": "${version}",
   "name": "Musical Weapons",
-  "description": "Добавляет Деревянную, Железную и Золотую арфы с уникальными навыками.",
+  "description": "Добавляет Деревянную, Железную и Золотую арфы с уникальными навыками, а также Боевую трубу.",
   "authors": ["Naikl48"],
   "license": "MIT",
   "environment": "*",
@@ -15,6 +15,9 @@
       "com.example.musicalweapons.MusicalWeaponsClient"
     ]
   },
+  "mixins": [
+    "musicalweapons.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=0.14.0",
     "fabric": "*",
