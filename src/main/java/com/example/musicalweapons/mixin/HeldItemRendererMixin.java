@@ -29,7 +29,6 @@ public abstract class HeldItemRendererMixin {
     @Shadow
     public abstract void renderItem(LivingEntity entity, ItemStack stack, ModelTransformation.Mode renderMode, boolean leftHanded, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light);
 
-    // Рендер смычка от первого лица (в руке игрока)
     @Inject(method = "renderFirstPersonItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/render/item/HeldItemRenderer;renderItem(Lnet/minecraft/entity/LivingEntity;Lnet/minecraft/item/ItemStack;Lnet/minecraft/client/render/model/json/ModelTransformation$Mode;ZLnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumerProvider;I)V", shift = At.Shift.AFTER))
     private void renderViolinBowFirstPerson(AbstractClientPlayerEntity player, float tickDelta, float pitch, Hand hand, float swingProgress, ItemStack item, float equipProgress, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, CallbackInfo ci) {
         if (item.getItem() instanceof ViolinItem && !ViolinItem.isBowThrown(item)) {
@@ -39,19 +38,16 @@ public abstract class HeldItemRendererMixin {
                                || (hand == Hand.OFF_HAND && player.getMainArm() == Arm.LEFT);
             int side = isRightHand ? 1 : -1;
 
-            // Базовое смещение смычка поверх скрипки
             float offsetX = -0.15f * side;
             float offsetY = 0.05f;
             float offsetZ = -0.05f;
 
-            // Если игрок заряжает скрипку — двигаем смычок из стороны в сторону
             if (player == this.client.player && MusicalWeaponsClient.isViolinCharging) {
                 int mode = ViolinItem.getMode(item);
                 float maxTicks = (mode == 1) ? 200.0f : 100.0f;
                 float smoothTicks = MusicalWeaponsClient.violinChargeTicks + tickDelta;
                 float progress = Math.min(smoothTicks / maxTicks, 1.0f);
 
-                // Скорость движения растёт от 0.25 до 1.4 по мере зарядки
                 float speed = 0.25f + (progress * 1.15f);
                 float slide = (float) Math.sin(smoothTicks * speed) * 0.22f;
 
@@ -60,7 +56,6 @@ public abstract class HeldItemRendererMixin {
             }
 
             matrices.translate(offsetX, offsetY, offsetZ);
-            // Поворачиваем смычок поперёк струн скрипки
             matrices.multiply(Vector3f.POSITIVE_Z.getDegreesQuaternion(75.0f * side));
             matrices.scale(0.85f, 0.85f, 0.85f);
 
